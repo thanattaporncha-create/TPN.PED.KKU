@@ -174,27 +174,35 @@
       document.getElementById('bag-area').innerHTML = createBag(rawData);
     }
 
-    function createPN(o, bNum, div) {
+ function createPN(o, bNum, div) {
       const exp = new Date(o.order_date); exp.setDate(exp.getDate() + 1);
       const vPerB = (parseFloat(o.pn_volume) || 0) / div;
       const totalCalories = parseFloat(o.total_calories) || 0;
       const flushValue = 30 / div;
       const dexVol = parseFloat(o.dex_vol) || 0;
       const protVol = parseFloat(o.protein_vol) || 0;
-      const protName = o.protein_product_name?.toLowerCase() || "";
-      const dexCal = dexVol * 1.7;
-      let protGrams = protVol * 0.1; 
-      if (protName.includes("aminoplasmal")) { protGrams = protVol * 0.15; }
-      const protCal = protGrams * 4;
-      const pnCaloriesOnly = dexCal + protCal;
-
+      
+      // ดึงชื่อโปรตีน
       const getProtName = (n) => {
-        const name = n?.toLowerCase();
+        const name = n ? n.toString().toLowerCase() : "";
         if (name === "aminoven") return "10% Aminoven-Infant";
         if (name === "amiparen") return "10% Amiparen";
         if (name === "aminoplasmal") return "15% Aminoplasmal";
-        return n || "Protein";
+        // ถ้าเป็น "อื่นๆ" ให้ดึงชื่อจาก additive_other_name มาต่อท้าย (ถ้ามี)
+        return o.additive_other_name ? o.additive_other_name : (n || "Protein");
       };
+
+      // คำนวณแคลอรี่โปรตีนตามผลิตภัณฑ์
+      let protGrams = 0;
+      const checkName = o.protein_product ? o.protein_product.toString().toLowerCase() : "";
+      if (checkName.includes("aminoplasmal")) { 
+        protGrams = protVol * 0.15; 
+      } else {
+        protGrams = protVol * 0.10;
+      }
+      const protCal = protGrams * 4;
+      const dexCal = dexVol * 0.5 * 3.4; // 50% Dex = 0.5g/ml * 3.4 kcal/g
+      const pnCaloriesOnly = dexCal + protCal;
 
       const otherName = o.additive_other_name && o.additive_other_name !== "" ? o.additive_other_name : "อื่นๆ";
 
@@ -210,7 +218,7 @@
           <tbody contenteditable="true">
           <tr><td>1. Sterile Water</td><td class="text-right">${smartFix(o.water_net, div)}</td></tr>
           <tr><td>2. 50% D-W</td><td class="text-right">${smartFix(o.dex_vol, div)}</td></tr>
-          <tr><td>3. ${getProtName(o.protein_product_name)}</td><td class="text-right">${smartFix(o.protein_vol, div)}</td></tr>
+          <tr><td>3. ${getProtName(o.protein_product)}</td><td class="text-right">${smartFix(o.protein_vol, div)}</td></tr>
           <tr><td>4. Glycophos (P)</td><td class="text-right">${smartFix(o.phos_vol, div)}</td></tr>
           <tr><td>5. 3% NaCl (Na)</td><td class="text-right">${smartFix(o.na_vol, div)}</td></tr>
           <tr><td>6. 15% KCl (K)</td><td class="text-right">${smartFix(o.k_vol, div)}</td></tr>
@@ -259,13 +267,15 @@
         vSmof = vSmofTotal / div; vVit = vVitTotal / div; vFlu = vFluTotal / div; vTotalSyr = totalNetFat / div;
       }
 
+      // ดึงชื่อ Lipid
       const getFatName = (n) => {
-        const name = n?.toLowerCase();
+        const name = n ? n.toString().toLowerCase() : "";
         if (name === "smof") return "20% SMOF lipid";
         if (name === "intralipid") return "20% Intralipid";
         return n || "Fat Emulsion";
       };
 
+      // ดึงชื่อ Vitalipid
       const vitType = o.vit_product ? o.vit_product.toString().toLowerCase() : "";
       const vitDisplay = vitType.includes("infant") ? "✿ Vitalipid N-Infant ✿" : "Vitalipid N-Adult";
 
@@ -280,7 +290,7 @@
           <tbody contenteditable="true">
           <tr>
             <td style="width: 75%; line-height: 1.2;">
-              ${getFatName(o.fat_product_name)} <strong>${smartFix(vSmof)} ml</strong><br>
+              ${getFatName(o.fat_product)} <strong>${smartFix(vSmof)} ml</strong><br>
               + ไล่สาย <strong>${smartFix(vFlu)} ml</strong>
             </td>
             <td style="width: 25%; text-align: right; font-size: 16px;">${smartFix(vSmof + vFlu)}</td>
@@ -307,7 +317,7 @@
           </div>
         </div>
       </div>`;
-    }
+    }}
 
     function createBag(o) {
       return `<div class="sticker sticker-small flex flex-col items-center justify-center text-center" style="padding: 1.3cm 0.25in 0.1in 0.25in !important;" contenteditable="true">
