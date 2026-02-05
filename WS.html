@@ -97,15 +97,18 @@
       document.getElementById('ws-container').innerHTML = createSheet(rawData, div);
     }
 
-    function createSheet(o, div) {
+   function createSheet(o, div) {
       const getVal = (v) => (parseFloat(v) || 0) / div;
       
+      // ดึงชื่อ Protein Product ตามเงื่อนไขที่คุณขิมกำหนด
       const getProtName = (n) => {
-        const name = n?.toLowerCase() || "";
-        if (name.includes("aminoven")) return "10% Aminoven-Infant ✱";
-        if (name.includes("amiparen")) return "10% AmiPa-REN";
-        if (name.includes("aminoplasmal")) return "15% AminoPlas-MAL";
-        return n || "Amino Acid";
+        const name = n ? n.toString().toLowerCase() : "";
+        if (name === "aminoven") return "10% Aminoven-Infant ✱";
+        if (name === "amiparen") return "10% Ami-pa-REN";
+        if (name === "aminoplasmal") return "15% AminoPlas-MAL";
+        
+        // กรณี "อื่นๆ" หรือค่าที่ไม่ตรงกับข้างบน ให้พยายามดึงจาก additive_other_name
+        return o.additive_other_name ? o.additive_other_name : (n || "Amino Acid");
       };
 
       const vW_P = getVal(o.prep_water_vol || o.water_net);
@@ -129,6 +132,11 @@
       };
 
       const flushVal = 30 / div;
+
+      // กำหนดชื่อรายการที่ 12 (Other Additive)
+      const otherItemName = o.additive_other_name && o.additive_other_name !== "" 
+                            ? o.additive_other_name 
+                            : "Additive อื่นๆ";
 
       return `
         <div class="sheet" contenteditable="true">
@@ -157,7 +165,7 @@
             <tbody>
               <tr><td class="text-center font-bold">1</td><td class="item-name">Sterile Water <small>(${formatNum(o.water_net, div)})</small></td><td class="val-prep text-left">${formatNum(vW_P)}</td><td class="val-cumul"></td></tr>
               <tr><td class="text-center font-bold">2</td><td class="item-name">50% D-W <small>(${formatNum(o.dex_vol, div)})</small></td><td class="val-prep text-left">${formatNum(vD_P)}</td><td class="val-cumul">${calcCumul(vW_P + vD_P, true)}</td></tr>
-              <tr><td class="text-center font-bold">3</td><td class="item-name">${getProtName(o.protein_product_name)}</td><td class="val-prep text-left">${formatNum(vProt)}</td><td class="val-cumul">${calcCumul(vProt, true)}</td></tr>
+              <tr><td class="text-center font-bold">3</td><td class="item-name">${getProtName(o.protein_product)}</td><td class="val-prep text-left">${formatNum(vProt)}</td><td class="val-cumul">${calcCumul(vProt, true)}</td></tr>
               <tr><td class="text-center font-bold">4</td><td class="item-name">Glycophos (P)</td><td class="val-prep text-left">${formatNum(vPhos)}</td><td class="val-cumul">${calcCumul(vPhos, false)}</td></tr>
               <tr><td class="text-center font-bold">5</td><td class="item-name">3% NaCl (Na)</td><td class="val-prep text-left">${formatNum(vNa)}</td><td class="val-cumul">${calcCumul(vNa, true)}</td></tr>
               
@@ -167,7 +175,7 @@
               <tr class="row-gray"><td class="text-center font-bold">9</td><td class="item-name">10% Ca Gluconate</td><td class="val-prep text-right">${formatNum(vCa)}</td><td class="val-cumul">${calcCumul(vCa, false)}</td></tr>
               <tr class="row-gray"><td class="text-center font-bold">10</td><td class="item-name">Zinc Sulfate</td><td class="val-prep text-right">${formatNum(vZinc)}</td><td class="val-cumul">${calcCumul(vZinc, false)}</td></tr>
               <tr class="row-gray"><td class="text-center font-bold">11</td><td class="item-name">Soluvit-N</td><td class="val-prep text-right">${formatNum(vSolu)}</td><td class="val-cumul">${calcCumul(vSolu, false)}</td></tr>
-              <tr class="row-gray"><td class="text-center font-bold">12</td><td class="item-name">${o.additive_other_name || 'Additive อื่นๆ'}</td><td class="val-prep text-right">${formatNum(vOther)}</td><td class="val-cumul">${calcCumul(vOther, false)}</td></tr>
+              <tr class="row-gray"><td class="text-center font-bold">12</td><td class="item-name">${otherItemName}</td><td class="val-prep text-right">${formatNum(vOther)}</td><td class="val-cumul">${calcCumul(vOther, false)}</td></tr>
               <tr class="row-gray"><td class="text-center font-bold">13</td><td class="item-name">Heparin (1u/ml) conc. 500 u/ml</td><td class="val-prep text-right">${formatNum(vHep)}</td><td class="val-cumul">${calcCumul(vHep, false)}</td></tr>
               
               <tr style="background-color: #ddd; font-weight: 900;">
