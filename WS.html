@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>TPN Worksheet - Bottom Aligned</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* เน้นความคมชัดและตำแหน่งตามสั่ง */
+    * { font-family: 'Sarabun', sans-serif; color: #000; line-height: 1.1; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white; margin: 0; }
+      .sheet { box-shadow: none !important; border: 1.5px solid #000 !important; margin: 0 !important; }
+    }
+    .sheet {
+      width: 14.85cm; 
+      height: 21cm; 
+      /* ปรับ padding ล่างให้เหลือ 0.3cm */
+      padding: 0.5cm 0.7cm 0.3cm 0.7cm; 
+      margin: 10px auto; 
+      background: white; 
+      border: 1.5px solid #000; 
+      position: relative;
+      display: flex; 
+      flex-direction: column;
+      /* ดันเนื้อหาทั้งหมดลงไปด้านล่าง */
+      justify-content: flex-end;
+    }
+    
+    /* คงขนาดตารางเดิม แต่ยกเลิก flex-grow เพื่อไม่ให้มันขยายเอง */
+    table { width: 100%; border-collapse: collapse; margin-top: 5px; table-layout: fixed; flex-grow: 0; }
+    th, td { border: 1.5px solid #000; padding: 5px 10px; vertical-align: middle; }
+    
+    th { font-weight: 800; font-size: 16px; background: #fff; }
+    .item-name { font-size: 19px; font-weight: 800; letter-spacing: -0.5px; }
+    .item-name small { font-size: 13px; font-weight: 400; }
+    
+    .val-prep { font-weight: 800; font-size: 24px; }
+    .val-cumul { font-weight: 900; font-size: 24px; text-align: right; background: #fcfcfc; }
+    
+    .row-gray { background-color: #f2f2f2 !important; }
+    .text-left { text-align: left !important; }
+    .text-right { text-align: right !important; }
+
+    .bag-badge { border: 2.5px solid #000; padding: 2px 10px; font-size: 16px; font-weight: 900; display: inline-block; margin-bottom: 4px; }
+    
+    /* ปรับส่วนเซ็นชื่อให้กระชับ เพื่อรอรับการดันลงข้างล่าง */
+    .footer-sign { 
+      height: 3.0cm; 
+      display: flex; 
+      align-items: flex-end; 
+      justify-content: space-between; 
+      padding: 0 1cm 0.5cm 1cm; 
+    }
+    [contenteditable="true"]:hover { outline: 1px dashed #000; }
+  </style>
+</head>
+<body class="bg-gray-100">
+
+  <div class="no-print p-4 bg-gray-200 flex justify-between items-center max-w-2xl mx-auto shadow-md">
+    <div class="flex items-center gap-4">
+        <span class="font-bold">โหมด:</span>
+        <select id="bagCount" onchange="renderAll()" class="p-1 border-2 border-black font-black bg-white rounded">
+            <option value="1">1 ถุงปกติ</option>
+            <option value="2">2 ถุง (x2)</option>
+        </select>
+    </div>
+    <button onclick="window.print()" class="bg-black text-white px-8 py-2 font-black text-lg hover:bg-gray-800 transition-all">🖨️ PRINT</button>
+  </div>
+
+  <div id="ws-container"></div>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycby7vEf3xv1EkjcY_tYSESqmE9nUhVq8WvKZLOl-Pr9XQSAj3XytPBcBAyWuLWC9LbwM/exec';
+    let rawData = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const row = urlParams.get('row');
+      if (row) {
+        const res = await fetch(`${API_URL}?action=getDataDetail&row_index=${row}`);
+        rawData = await res.json();
+        renderAll();
+      }
+    });
+
+    const formatNum = (v, div = 1) => {
+      let num = (parseFloat(v) || 0) / div;
+      let rounded = Math.round(num * 100) / 100;
+      return parseFloat(rounded.toFixed(2)).toString(); 
+    };
+
+    function renderAll() {
+      if (!rawData) return;
+      const div = parseInt(document.getElementById('bagCount').value);
+      document.getElementById('ws-container').innerHTML = createSheet(rawData, div);
+    }
+
+    function createSheet(o, div) {
+      const getVal = (v) => (parseFloat(v) || 0) / div;
+      
+      const getProtName = (n) => {
+        const name = n?.toLowerCase() || "";
+        if (name.includes("aminoven")) return "10% Aminoven-Infant ✱";
+        if (name.includes("amiparen")) return "10% AmiPa-REN";
+        if (name.includes("aminoplasmal")) return "15% AminoPlas-MAL";
+        return n || "Amino Acid";
+      };
+
+      const vW_P = getVal(o.prep_water_vol || o.water_net);
+      const vD_P = getVal(o.prep_dex_50_vol || o.dex_vol);
+      const vProt = getVal(o.prep_protein_vol || o.protein_vol);
+      const vPhos = getVal(o.prep_phos_vol || o.phos_vol);
+      const vNa = getVal(o.prep_na_vol || o.na_vol);
+      const vK = getVal(o.prep_k_vol || o.k_vol);
+      const vMg = getVal(o.prep_mg_vol || o.mg_vol);
+      const vCa = getVal(o.prep_ca_vol || o.ca_vol);
+      const vPed = getVal(o.peditrace_vol);
+      const vZinc = getVal(o.zinc_vol);
+      const vSolu = getVal(o.soluvit_vol);
+      const vOther = getVal(o.additive_other_volume);
+      const vHep = getVal(o.heparin_vol);
+
+      let currentSum = 0;
+      const calcCumul = (val, show) => { 
+        currentSum += val; 
+        return show ? formatNum(currentSum) : ""; 
+      };
+
+      const flushVal = 30 / div;
+
+      return `
+        <div class="sheet" contenteditable="true">
+          <div class="flex justify-between items-start mb-1" style="margin-top: auto;">
+             <div class="flex-1">
+                ${div === 2 ? '<div class="bag-badge">PREP x 2 BAGS</div>' : ''}
+                <h1 class="text-xl font-black italic leading-none">TPN WORKSHEET</h1>
+                <p class="text-[22px] font-black mt-1">${o.patient_name}</p>
+                <p class="text-sm font-bold">HN: ${o.hn} | BW: ${o.bw} kg | ${new Date(o.order_date).toLocaleDateString('th-TH')}</p>
+             </div>
+             <div class="text-right">
+                <p class="text-[9px] font-bold">WARD</p>
+                <p class="text-6xl font-black leading-none">${o.ward || '-'}</p>
+             </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 45px;">#</th>
+                <th style="text-align: left;">รายการสารอาหาร</th>
+                <th style="width: 110px;">Prep (ml)</th>
+                <th style="width: 115px;">ถุงรวม (ml)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td class="text-center font-bold">1</td><td class="item-name">Sterile Water <small>(${formatNum(o.water_net, div)})</small></td><td class="val-prep text-left">${formatNum(vW_P)}</td><td class="val-cumul"></td></tr>
+              <tr><td class="text-center font-bold">2</td><td class="item-name">50% D-W <small>(${formatNum(o.dex_vol, div)})</small></td><td class="val-prep text-left">${formatNum(vD_P)}</td><td class="val-cumul">${calcCumul(vW_P + vD_P, true)}</td></tr>
+              <tr><td class="text-center font-bold">3</td><td class="item-name">${getProtName(o.protein_product_name)}</td><td class="val-prep text-left">${formatNum(vProt)}</td><td class="val-cumul">${calcCumul(vProt, true)}</td></tr>
+              <tr><td class="text-center font-bold">4</td><td class="item-name">Glycophos (P)</td><td class="val-prep text-left">${formatNum(vPhos)}</td><td class="val-cumul">${calcCumul(vPhos, false)}</td></tr>
+              <tr><td class="text-center font-bold">5</td><td class="item-name">3% NaCl (Na)</td><td class="val-prep text-left">${formatNum(vNa)}</td><td class="val-cumul">${calcCumul(vNa, true)}</td></tr>
+              
+              <tr class="row-gray"><td class="text-center font-bold">6</td><td class="item-name">15% KCl (K)</td><td class="val-prep text-right">${formatNum(vK)}</td><td class="val-cumul">${calcCumul(vK, false)}</td></tr>
+              <tr class="row-gray"><td class="text-center font-bold">7</td><td class="item-name">50% MgSO4 (Mg)</td><td class="val-prep text-right">${formatNum(vMg)}</td><td class="val-cumul">${calcCumul(vMg, false)}</td></tr>
+              <tr class="row-gray"><td class="text-center font-bold">8</td><td class="item-name">Peditrace</td><td class="val-prep text-right">${formatNum(vPed)}</td><td class="val-cumul">${calcCumul(vPed, false)}</td></tr>
+              <tr class="row-gray"><td class="text-center font-bold">9</td><td class="item-name">10% Ca Gluconate</td><td class="val-prep text-right">${formatNum(vCa)}</td><td class="val-cumul">${calcCumul(vCa, false)}</td></tr>
+              <tr class="row-gray"><td class="text-center font-bold">10</td><td class="item-name">Zinc Sulfate</td><td class="val-prep text-right">${formatNum(vZinc)}</td><td class="val-cumul">${calcCumul(vZinc, false)}</td></tr>
+              <tr class="row-gray"><td class="text-center font-bold">11</td><td class="item-name">Soluvit-N</td><td class="val-prep text-right">${formatNum(vSolu)}</td><td class="val-cumul">${calcCumul(vSolu, false)}</td></tr>
+              <tr class="row-gray"><td class="text-center font-bold">12</td><td class="item-name">${o.additive_other_name || 'Additive อื่นๆ'}</td><td class="val-prep text-right">${formatNum(vOther)}</td><td class="val-cumul">${calcCumul(vOther, false)}</td></tr>
+              <tr class="row-gray"><td class="text-center font-bold">13</td><td class="item-name">Heparin (1u/ml) conc. 500 u/ml</td><td class="val-prep text-right">${formatNum(vHep)}</td><td class="val-cumul">${calcCumul(vHep, false)}</td></tr>
+              
+              <tr style="background-color: #ddd; font-weight: 900;">
+                <td colspan="2" class="text-right text-lg">Total PN vol + ไล่สาย ${formatNum(flushVal)} ml</td>
+                <td colspan="2" class="text-center text-4xl">${formatNum(o.pn_prep_total || o.pn_volume, div)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="footer-sign">
+            <div class="text-center"><div class="w-32 border-b-2 border-black"></div><p class="font-black text-xs mt-2">คนเตรียม</p></div>
+            <div class="text-center"><div class="w-32 border-b-2 border-black"></div><p class="font-black text-xs mt-2">คนตรวจ</p></div>
+          </div>
+        </div>`;
+    }
+  </script>
+</body>
+</html>
