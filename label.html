@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>TPN Master Print | Auto-Margin Version</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* CSS พื้นฐาน */
+    * { font-family: 'Sarabun', sans-serif; color: #000; line-height: 1.1; font-weight: 700; }
+    
+    @media print {
+      /* บังคับระยะขอบกระดาษเป็น 0 ทุกด้าน */
+      @page { margin: 0; }
+      body { background: #fff; margin: 0; padding: 0; }
+      .no-print { display: none !important; }
+      .print-area:not(.active) { display: none !important; }
+      
+      .sticker { 
+        box-shadow: none !important; 
+        border: none !important; 
+        page-break-after: always; 
+        display: block !important;
+      }
+
+      /* ปรับ Scale ของ PN อัตโนมัติ (ไม่ต้องตั้ง 92% เอง) */
+      #pn-area .sticker-pn {
+        zoom: 0.92;
+        margin: 0 auto !important;
+      }
+
+      /* ปรับ Offset ของ Fat และ Bag (ชดเชย 2mm ที่เคยตั้งค่าเอง) */
+      #fat-area .sticker-small, 
+      #bag-area .sticker-small {
+        margin-top: 2mm !important;
+        zoom: 1.0;
+      }
+    }
+
+    [contenteditable="true"]:hover { background: #fff9c4; outline: 1px dashed #ccc; cursor: text; }
+    [contenteditable="true"]:focus { background: #fff9c4; outline: 2px solid #2563eb; }
+
+    /* ฉลาก PN */
+    .sticker-pn { 
+      width: 8.5cm; 
+      height: 12.9cm; 
+      padding: 1.45cm 0.4cm 0.4cm 0.4cm; 
+      box-sizing: border-box; 
+      background: white; 
+      position: relative; 
+      border: 1px solid #000; 
+      margin: 10px auto; 
+      display: flex; 
+      flex-direction: column; 
+    }
+
+    /* ฉลากเล็ก (Fat/หน้าถุง) */
+    .sticker-small { 
+      width: 3.5in; 
+      height: 2.48in; 
+      padding: 1.3cm 0.25in 0.1in 0.25in; 
+      box-sizing: border-box; 
+      background: white; 
+      position: relative; 
+      border: 1px solid #000; 
+      margin: 10px auto; 
+    }
+    
+    .pn-table { width: 100%; font-size: 11.5px; border-collapse: collapse; border: 1.5px solid #000; flex-grow: 1; }
+    .pn-table td { border: 1px solid #000; padding: 3px 5px; vertical-align: middle; font-weight: 400; } 
+    .pn-table th { border: 1.5px solid #000; padding: 4px 5px; vertical-align: middle; font-size: 11px; font-weight: 800; background: #f2f2f2; }
+
+    .fat-table-bold { width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 14px; }
+    .fat-table-bold td { border: 2px solid #000; padding: 5px; font-weight: 800; }
+
+    .text-right { text-align: right; }
+    .header-info { font-size: 13px; font-weight: 800; border-bottom: 2px solid #000; margin-bottom: 4px; }
+    .ward-route-info { font-size: 13px; font-weight: 800; border-bottom: 1.2px solid #000; margin-bottom: 6px; padding-bottom: 3px; }
+    
+    .footer-container { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: flex-end; 
+      width: 100%; 
+      margin-top: 8px; 
+      border-top: 1.5px solid #000; 
+      padding-top: 6px; 
+    }
+
+    .summary-stack { font-size: 10px; font-weight: 400; line-height: 1.9; text-align: left; padding-left: 2px; margin-bottom: -4px; }
+    .info-box-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-bottom: 2px; }
+    .rate-box-final { border: 2px solid #000; padding: 2px 6px; font-size: 13.5px; font-weight: 900; display: inline-block; white-space: nowrap; }
+    .exp-text { font-size: 10.5px; text-align: right; font-weight: 800; line-height: 1.1; margin-top: -3px; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen pb-20">
+
+  <div class="max-w-4xl mx-auto py-8 px-4 no-print text-center">
+    <div class="bg-emerald-100 p-4 rounded-xl mb-6 text-emerald-800 text-sm">
+      🚀 <b>Smart Print Version:</b> ตั้งค่าระยะขอบและสเกลให้อัตโนมัติ (Margin: 0, PN Scale: 92%)
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div id="card-pn" onclick="selectSection('pn')" class="bg-white p-5 rounded-3xl border-4 border-gray-100 cursor-pointer transition-all hover:border-blue-400">
+        <h3 class="font-black text-lg">PN BIG LABEL</h3>
+        <div onclick="event.stopPropagation()"><select id="pnCount" onchange="renderAll()" class="mt-2 p-1 border rounded w-24"><option value="1">1 ขวด</option><option value="2">2 ขวด</option></select></div>
+      </div>
+      <div id="card-fat" onclick="selectSection('fat')" class="bg-white p-5 rounded-3xl shadow-sm border-4 border-gray-100 cursor-pointer transition-all hover:border-amber-400">
+        <h3 class="font-black text-lg">FAT LABEL</h3>
+        <div onclick="event.stopPropagation()"><select id="fatCount" onchange="renderAll()" class="mt-2 p-1 border rounded w-24"><option value="1">1 อัน</option><option value="2">2 อัน</option></select></div>
+      </div>
+      <div id="card-bag" onclick="selectSection('bag')" class="bg-white p-5 rounded-3xl shadow-sm border-4 border-gray-100 cursor-pointer transition-all hover:border-emerald-400">
+        <h3 class="font-black text-lg uppercase text-emerald-900">หน้าถุง</h3>
+      </div>
+    </div>
+
+    <div id="action-btns" class="hidden flex flex-col md:flex-row gap-4 justify-center">
+      <button onclick="window.print()" class="bg-slate-900 text-white py-5 px-10 rounded-3xl font-black text-xl shadow-xl hover:bg-black transition-colors">🖨️ พิมพ์ทันที (ไม่ต้องตั้งค่า)</button>
+      <button onclick="generatePDF()" class="bg-blue-600 text-white py-5 px-10 rounded-3xl font-black text-xl shadow-xl hover:bg-blue-700 transition-colors">💾 บันทึกเป็น PDF</button>
+    </div>
+  </div>
+
+  <div id="pn-area" class="print-area"></div>
+  <div id="fat-area" class="print-area"></div>
+  <div id="bag-area" class="print-area"></div>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycby7vEf3xv1EkjcY_tYSESqmE9nUhVq8WvKZLOl-Pr9XQSAj3XytPBcBAyWuLWC9LbwM/exec';
+    let rawData = null;
+    let selectedType = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const row = urlParams.get('row');
+      if (row) {
+        const res = await fetch(`${API_URL}?action=getDataDetail&row_index=${row}`);
+        rawData = await res.json();
+        renderAll();
+      }
+    });
+
+    function selectSection(type) {
+      selectedType = type;
+      document.querySelectorAll('.print-area').forEach(el => el.classList.remove('active'));
+      document.getElementById(`${type}-area`).classList.add('active');
+      document.querySelectorAll('.bg-white').forEach(el => el.style.borderColor = '#f3f4f6');
+      document.getElementById(`card-${type}`).style.borderColor = '#2563eb';
+      document.getElementById('action-btns').classList.remove('hidden');
+    }
+
+    const smartFix = (v, div = 1) => {
+      let num = (parseFloat(v) || 0) / div;
+      return Number(Math.round(num * 100) / 100);
+    };
+
+    function formatThaiDate(dateObj) {
+      if (!dateObj) return "-";
+      const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+      const d = new Date(dateObj);
+      return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear() + 543}`;
+    }
+
+    function renderAll() {
+      if (!rawData) return;
+      const pnDiv = parseInt(document.getElementById('pnCount').value);
+      const pnArea = document.getElementById('pn-area'); pnArea.innerHTML = '';
+      for (let i = 1; i <= pnDiv; i++) { pnArea.innerHTML += createPN(rawData, i, pnDiv); }
+      
+      const fatDiv = parseInt(document.getElementById('fatCount').value);
+      const fatArea = document.getElementById('fat-area'); fatArea.innerHTML = '';
+      for (let j = 1; j <= fatDiv; j++) { fatArea.innerHTML += createFat(rawData, j, fatDiv); }
+      
+      document.getElementById('bag-area').innerHTML = createBag(rawData);
+    }
+
+    function generatePDF() {
+      if (!rawData) return;
+      const element = document.getElementById(`${selectedType}-area`);
+      const filename = `${selectedType}_${rawData.hn}_${rawData.patient_name}.pdf`;
+      const opt = {
+        margin: [0, 0],
+        filename: filename,
+        image: { type: 'jpeg', quality: 1 },
+        html2canvas: { scale: 3, useCORS: true, letterRendering: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      html2pdf().set(opt).from(element).save();
+    }
+
+    function createPN(o, bNum, div) {
+      const exp = new Date(o.order_date); exp.setDate(exp.getDate() + 1);
+      const vPerB = (parseFloat(o.pn_volume) || 0) / div;
+      const totalCalories = parseFloat(o.total_calories) || 0;
+      const flushValue = 30 / div;
+      const dexVol = parseFloat(o.dex_vol) || 0;
+      const protVol = parseFloat(o.protein_vol) || 0;
+      const protName = o.protein_product_name?.toLowerCase() || "";
+      const dexCal = dexVol * 1.7;
+      let protGrams = protVol * 0.1; 
+      if (protName.includes("aminoplasmal")) { protGrams = protVol * 0.15; }
+      const protCal = protGrams * 4;
+      const pnCaloriesOnly = dexCal + protCal;
+
+      const getProtName = (n) => {
+        const name = n?.toLowerCase();
+        if (name === "aminoven") return "10% Aminoven-Infant";
+        if (name === "amiparen") return "10% Amiparen";
+        if (name === "aminoplasmal") return "15% Aminoplasmal";
+        return n || "Protein";
+      };
+
+      const otherName = o.additive_other_name && o.additive_other_name !== "" ? o.additive_other_name : "อื่นๆ";
+
+      return `<div class="sticker sticker-pn">
+        <div class="header-info flex justify-between" contenteditable="true">
+          <span>HN: ${o.hn} - ${o.patient_name}</span><span>ขวด: ${bNum}/${div}</span>
+        </div>
+        <div class="ward-route-info flex justify-between" contenteditable="true">
+          <span>Ward: ${o.ward}</span><span>Route: ${o.route === 'central' ? 'C-line' : 'P-line'}</span>
+        </div>
+        <table class="pn-table">
+          <thead><tr><th style="width: 75%;">รายการ</th><th style="width: 25%;">ปริมาตร (ml)</th></tr></thead>
+          <tbody contenteditable="true">
+          <tr><td>1. Sterile Water</td><td class="text-right">${smartFix(o.water_net, div)}</td></tr>
+          <tr><td>2. 50% D-W</td><td class="text-right">${smartFix(o.dex_vol, div)}</td></tr>
+          <tr><td>3. ${getProtName(o.protein_product_name)}</td><td class="text-right">${smartFix(o.protein_vol, div)}</td></tr>
+          <tr><td>4. Glycophos (P)</td><td class="text-right">${smartFix(o.phos_vol, div)}</td></tr>
+          <tr><td>5. 3% NaCl (Na)</td><td class="text-right">${smartFix(o.na_vol, div)}</td></tr>
+          <tr><td>6. 15% KCl (K)</td><td class="text-right">${smartFix(o.k_vol, div)}</td></tr>
+          <tr><td>7. 50% MgSO4 (Mg)</td><td class="text-right">${smartFix(o.mg_vol, div)}</td></tr>
+          <tr><td>8. 10% Ca Gluconate</td><td class="text-right">${smartFix(o.ca_vol, div)}</td></tr>
+          <tr><td>9. Peditrace</td><td class="text-right">${smartFix(o.peditrace_vol, div)}</td></tr>
+          <tr><td>10. Zinc sulfate</td><td class="text-right">${smartFix(o.zinc_vol, div)}</td></tr>
+          <tr><td>11. Soluvit-N</td><td class="text-right">${smartFix(o.soluvit_vol, div)}</td></tr>
+          <tr><td>12. ${otherName}</td><td class="text-right">${smartFix(o.additive_other_volume, div)}</td></tr>
+          <tr><td>13. Heparin (1u/ml)</td><td class="text-right">${smartFix(o.heparin_vol, div)}</td></tr>
+          <tr class="big-vol-row" style="font-weight:800; background:#fafafa;"><td colspan="2" class="text-right">Total PN vol: ${smartFix(o.pn_volume, div)} ml</td></tr>
+          <tr class="big-vol-row" style="font-weight:800; background:#fafafa;"><td colspan="2" class="text-right">Total + ไล่สาย ${flushValue}ml: ${smartFix(vPerB + flushValue)} ml</td></tr>
+          </tbody>
+        </table>
+        <div class="footer-container">
+          <div class="summary-stack" contenteditable="true">
+            <div>Total cal (รวม fat): <span class="font-bold">${totalCalories.toFixed(1)} kcal/day</span></div>
+            <div>PN cal: <span class="font-bold">${pnCaloriesOnly.toFixed(1)} kcal/day</span></div>
+            <div>% Glucose: <span class="font-bold">${o.dextrose_percent}%</span> &nbsp;&nbsp; GIR: <span class="font-bold">${o.gir_result}</span></div>
+            <div>Osmolarity: <span class="font-bold">${o.final_osmolarity} mOsmol/L</span></div>
+          </div>
+          <div class="info-box-right" contenteditable="true">
+            <div class="rate-box-final">Rate: ${o.rate_tpn} ml/hr</div>
+            <div class="exp-text">หมดอายุ: ${formatThaiDate(exp)}<br>เวลา 18.00 น.</div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function createFat(o, fNum, div) {
+      const exp = new Date(o.order_date); exp.setDate(exp.getDate() + 1);
+      const totalNetFat = parseFloat(o.total_fat_vit_flush) || 0;
+      const vVitTotal = parseFloat(o.vitalipid_vol) || 0;
+      const vFluTotal = parseFloat(o.flush_volume) || 0;
+      const vSmofTotal = totalNetFat - vVitTotal - vFluTotal;
+
+      let vSmof, vVit, vFlu, vTotalSyr;
+
+      if (div === 2 && totalNetFat > 250) {
+        if (fNum === 1) { 
+          vSmof = vSmofTotal - 250; vVit = vVitTotal; vFlu = vFluTotal; vTotalSyr = vSmof + vVit + vFlu; 
+        } else { 
+          vSmof = 250; vVit = 0; vFlu = 0; vTotalSyr = 250; 
+        }
+      } else {
+        vSmof = vSmofTotal / div; vVit = vVitTotal / div; vFlu = vFluTotal / div; vTotalSyr = totalNetFat / div;
+      }
+
+      const getFatName = (n) => {
+        const name = n?.toLowerCase();
+        if (name === "smof") return "20% SMOF lipid";
+        if (name === "intralipid") return "20% Intralipid";
+        return n || "Fat Emulsion";
+      };
+
+      const vitType = o.vit_product ? o.vit_product.toString().toLowerCase() : "";
+      const vitDisplay = vitType.includes("infant") ? "✿ Vitalipid N-Infant ✿" : "Vitalipid N-Adult";
+
+      return `<div class="sticker sticker-small">
+        <div style="font-size: 14px; font-weight: 800; text-align: left;" contenteditable="true">HN: ${o.hn} - ${o.patient_name}</div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 1px;" contenteditable="true">
+          <div style="font-size: 18px; font-weight: 900;">Ward: ${o.ward}</div>
+          <div style="font-size: 18px; font-weight: 900;">${fNum}/${div}</div>
+        </div>
+        <div style="border-bottom: 2.5px solid #000; margin-bottom: 5px; width: 100%;"></div>
+        <table class="fat-table-bold">
+          <tbody contenteditable="true">
+          <tr>
+            <td style="width: 75%; line-height: 1.2;">
+              ${getFatName(o.fat_product_name)} <strong>${smartFix(vSmof)} ml</strong><br>
+              + ไล่สาย <strong>${smartFix(vFlu)} ml</strong>
+            </td>
+            <td style="width: 25%; text-align: right; font-size: 16px;">${smartFix(vSmof + vFlu)}</td>
+          </tr>
+          <tr>
+            <td>${vVit > 0 ? vitDisplay : '-'}</td>
+            <td style="text-align: right;">${smartFix(vVit)}</td>
+          </tr>
+          <tr style="background-color: #f2f2f2;">
+            <td style="text-align: left;">Total volume</td>
+            <td style="text-align: right; font-size: 18px;">${smartFix(vTotalSyr)}</td>
+          </tr>
+          </tbody>
+        </table>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 4px; width: 100%;" contenteditable="true">
+          <div style="font-size: 11px; font-weight: 800; text-align: left; line-height: 1.2;">
+            Rate: <span style="font-size: 13.5px; font-weight: 900;">${o.fat_rate} ml/hr</span><br>
+            <span style="font-size: 10px;">เตรียม: ${formatThaiDate(o.order_date)}</span>
+          </div>
+          <div style="text-align: right; margin-top: -2px;">
+            <div style="font-size: 12.5px; font-weight: 900; line-height: 1.1;">
+              หมดอายุ: ${formatThaiDate(exp)}<br>เวลา 18.00 น.
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function createBag(o) {
+      return `<div class="sticker sticker-small flex flex-col items-center justify-center text-center" style="padding: 1.3cm 0.25in 0.1in 0.25in !important;" contenteditable="true">
+          <div style="font-size: 47px; font-weight: 900; line-height: 1;">${o.ward}</div>
+          <div style="border-top: 3.5px solid #000; border-bottom: 3.5px solid #000; width: 100%; padding: 6px 0; margin: 6px 0;">
+            <span style="font-size: 22.5px; font-weight: 900; display: block; line-height: 1.1;">${o.patient_name}</span>
+          </div>
+          <div style="font-size: 19px; font-weight: 800; margin-bottom: 4px;">HN: ${o.hn}</div>
+          <div style="font-size: 17px; font-weight: 700; margin-bottom: 6px;">วันที่เตรียม: ${formatThaiDate(o.order_date)}</div>
+          <div style="font-size: 15.4px; font-weight: 800; color: #000;">(เก็บในตู้เย็น 2-8° C)</div>
+        </div>`;
+    }
+  </script>
+</body>
+</html>
