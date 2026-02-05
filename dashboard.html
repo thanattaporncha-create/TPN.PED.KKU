@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="th" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TPN Dashboard | โรงพยาบาลศรีนครินทร์</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Sarabun', 'Inter', sans-serif; }
+    .gradient-header { background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); }
+    .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    #wardFilterDropdown::-webkit-scrollbar { width: 6px; }
+    #wardFilterDropdown::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    
+    .btn-action { 
+      @apply flex-1 py-1.5 rounded-full text-[10px] font-black transition-all flex items-center justify-center gap-1 border-2 border-gray-100 bg-transparent text-gray-700; 
+    }
+    .btn-detail:hover { @apply border-blue-400 text-blue-800; }
+    .btn-label:hover { @apply border-amber-400 text-amber-800; }
+    .btn-ws:hover { @apply border-green-400 text-green-800; }
+    .btn-off:hover { @apply border-red-400 text-red-800; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-full">
+
+  <header class="gradient-header text-white py-3 px-6 sticky top-0 z-50 shadow-lg">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="text-2xl">📊</div>
+        <div>
+          <h1 class="text-lg font-bold uppercase tracking-tight">TPN Order Dashboard</h1>
+          <p class="text-blue-100 text-[10px]">Srinagarind Hospital | KKU Pharmacy</p>
+        </div>
+      </div>
+      <a href="index.html" class="px-5 py-2 bg-white/10 hover:bg-white/20 rounded-full transition-all text-sm font-black border border-white/20 text-white">🏠 คำนวณใหม่</a>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto p-4 md:p-6">
+    <div class="bg-white rounded-[2rem] shadow-sm p-6 mb-4 border border-gray-200">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-5 items-end">
+        <div class="flex flex-col text-black font-black">
+          <span class="text-[11px] mb-1 uppercase tracking-wider text-blue-900">🗓️ วันที่</span>
+          <input type="date" id="filterDate" class="px-4 py-2 rounded-2xl border-2 border-gray-100 focus:border-blue-500 outline-none text-base font-black" onchange="renderCards()">
+        </div>
+        <div class="flex flex-col relative text-black font-black">
+          <span class="text-[11px] mb-1 uppercase tracking-wider text-blue-900">🏥 ค้นหา Ward</span>
+          <input type="text" id="filterWardInput" placeholder="พิมพ์ชื่อ Ward..." class="px-4 py-2 rounded-2xl border-2 border-gray-100 focus:border-blue-500 outline-none text-base font-black" onfocus="showWardDropdown()" oninput="filterWardOptions()" autocomplete="off">
+          <input type="hidden" id="filterWardValue">
+          <div id="wardFilterDropdown" class="hidden absolute left-0 right-0 top-[100%] z-[100] mt-1 bg-white border border-gray-200 rounded-2xl shadow-2xl max-h-56 overflow-y-auto">
+            <div id="wardFilterOptions" class="py-1"></div>
+          </div>
+        </div>
+        <div class="flex flex-col text-black font-black">
+          <span class="text-[11px] mb-1 uppercase tracking-wider text-blue-900">🔍 ค้นหา HN</span>
+          <input type="text" id="filterHN" placeholder="ระบุเลข HN..." class="px-4 py-2 rounded-2xl border-2 border-gray-100 focus:border-blue-500 outline-none text-base font-black" oninput="renderCards()">
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <button onclick="clearAllFilters()" class="px-4 py-2.5 bg-gray-50 text-gray-700 rounded-full font-black text-xs border border-gray-200 hover:bg-gray-200">ล้างค่า</button>
+          <button onclick="fetchOrders()" class="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-full font-black text-xs shadow-md hover:bg-blue-700 transition-all">🔄 รีเฟรช</button>
+          <div class="text-right min-w-[50px]"><span id="caseCount" class="text-4xl font-black text-blue-900 leading-none">0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-4">
+        <button onclick="printAllWorksheets()" class="w-full py-4 bg-indigo-600 text-white rounded-[1.5rem] font-black text-xl shadow-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 transform hover:scale-[1.01] active:scale-95">
+            🖨️ พิมพ์ Worksheet ทั้งหมด (A4 x 2 เคส)
+        </button>
+    </div>
+
+    <div id="cardContainer" class="flex flex-col gap-3 animate-fade-in pb-10"></div>
+  </main>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycby7vEf3xv1EkjcY_tYSESqmE9nUhVq8WvKZLOl-Pr9XQSAj3XytPBcBAyWuLWC9LbwM/exec';
+    let allOrders = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // ตั้งค่าวันที่เริ่มต้นเป็นวันนี้
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('filterDate').value = today;
+        fetchOrders();
+    });
+
+    async function fetchOrders() {
+      const container = document.getElementById('cardContainer');
+      container.innerHTML = `<div class="text-center py-10 font-black">🔄 กำลังเรียกข้อมูล...</div>`;
+      try {
+        const response = await fetch(`${API_URL}?action=getData&ts=${new Date().getTime()}`);
+        allOrders = await response.json();
+        renderCards();
+      } catch (e) { container.innerHTML = `<p class="text-center py-20 text-red-600 font-black">❌ ผิดพลาดการโหลดข้อมูล</p>`; }
+    }
+
+    // ฟังก์ชันจัดการพิมพ์ Worksheet ทั้งหมดแบบ 2 เคสต่อแผ่น
+    async function printAllWorksheets() {
+        const targetDate = document.getElementById('filterDate').value;
+        if(!targetDate) return alert("กรุณาเลือกวันที่ต้องการพิมพ์ค่ะ");
+        
+        const btn = event.currentTarget;
+        const originalBtnText = btn.innerHTML;
+        btn.innerHTML = "⌛ กำลังจัดเตรียมข้อมูล...";
+        
+        try {
+            const res = await fetch(`${API_URL}?action=getTodayWorksheets&date=${targetDate}`);
+            const data = await res.json();
+            
+            if (data.length === 0) {
+                btn.innerHTML = originalBtnText;
+                return alert("ไม่พบข้อมูลของวันที่เลือกค่ะ");
+            }
+
+            const printWin = window.open('', '_blank');
+            let html = `<html><head><title>Print All Worksheets</title>
+                <script src="https://cdn.tailwindcss.com"><\/script>
+                <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700;800&display=swap" rel="stylesheet">
+                <style>
+                    * { font-family: 'Sarabun', sans-serif; color: #000; line-height: 1.1; }
+                    @media print { @page { size: A4; margin: 0; } body { margin: 0; } }
+                    .sheet { 
+                        width: 210mm; height: 148.5mm; padding: 0.5cm 0.7cm 0.3cm 0.7cm; 
+                        border-bottom: 1px dashed #ccc; display: flex; flex-direction: column; 
+                        justify-content: flex-end; page-break-inside: avoid; 
+                    }
+                    .sheet:nth-child(even) { border-bottom: none; page-break-after: always; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 5px; table-layout: fixed; }
+                    th, td { border: 1.5px solid #000; padding: 4px 8px; vertical-align: middle; }
+                    th { font-weight: 800; font-size: 14px; }
+                    .item-name { font-size: 15px; font-weight: 800; }
+                    .val-prep { font-weight: 800; font-size: 18px; }
+                    .val-cumul { font-weight: 900; font-size: 18px; text-align: right; background: #fcfcfc; }
+                </style>
+            </head><body>`;
+
+            data.forEach((o) => {
+                const formatNum = (v) => parseFloat((parseFloat(v) || 0).toFixed(2)).toString();
+                let cumul = 0;
+                const vW = parseFloat(o.water_net), vD = parseFloat(o.dex_vol), vP = parseFloat(o.protein_vol);
+                
+                html += `<div class="sheet">
+                    <div class="flex justify-between items-end mb-1">
+                        <div>
+                            <h1 class="text-xl font-black italic">TPN WORKSHEET</h1>
+                            <p class="text-xl font-black">${o.patient_name}</p>
+                            <p class="text-xs font-bold">HN: ${o.hn} | BW: ${o.bw} kg | ${new Date(o.order_date).toLocaleDateString('th-TH')}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[8px] font-bold">WARD</p>
+                            <p class="text-5xl font-black">${o.ward || '-'}</p>
+                        </div>
+                    </div>
+                    <table>
+                        <thead><tr><th style="width:35px;">#</th><th>รายการสารอาหาร</th><th style="width:85px;">Prep (ml)</th><th style="width:95px;">ถุงรวม (ml)</th></tr></thead>
+                        <tbody>
+                            <tr><td class="text-center font-bold">1</td><td class="item-name">Sterile Water</td><td class="val-prep">${formatNum(vW)}</td><td class="val-cumul"></td></tr>
+                            <tr><td class="text-center font-bold">2</td><td class="item-name">50% D-W</td><td class="val-prep">${formatNum(vD)}</td><td class="val-cumul">${formatNum(cumul = vW+vD)}</td></tr>
+                            <tr><td class="text-center font-bold">3</td><td class="item-name">${o.protein_product_name || 'Amino Acid'}</td><td class="val-prep">${formatNum(vP)}</td><td class="val-cumul">${formatNum(cumul += vP)}</td></tr>
+                            <tr><td class="text-center font-bold">4</td><td class="item-name">Glycophos (P)</td><td class="val-prep">${formatNum(o.phos_vol)}</td><td class="val-cumul">${formatNum(cumul += parseFloat(o.phos_vol))}</td></tr>
+                            <tr><td class="text-center font-bold">5</td><td class="item-name">3% NaCl (Na)</td><td class="val-prep">${formatNum(o.na_vol)}</td><td class="val-cumul">${formatNum(cumul += parseFloat(o.na_vol))}</td></tr>
+                            <tr class="bg-gray-50"><td class="text-center font-bold">6</td><td class="item-name">15% KCl (K)</td><td class="val-prep text-right">${formatNum(o.k_vol)}</td><td class="val-cumul">${formatNum(cumul += parseFloat(o.k_vol))}</td></tr>
+                            <tr class="bg-gray-50"><td class="text-center font-bold">7</td><td class="item-name">50% MgSO4 (Mg)</td><td class="val-prep text-right">${formatNum(o.mg_vol)}</td><td class="val-cumul">${formatNum(cumul += parseFloat(o.mg_vol))}</td></tr>
+                            <tr class="bg-gray-50"><td class="text-center font-bold">8</td><td class="item-name">Peditrace</td><td class="val-prep text-right">${formatNum(o.peditrace_vol)}</td><td class="val-cumul">${formatNum(cumul += parseFloat(o.peditrace_vol))}</td></tr>
+                            <tr class="bg-gray-50"><td class="text-center font-bold">9</td><td class="item-name">10% Ca Gluconate</td><td class="val-prep text-right">${formatNum(o.ca_vol)}</td><td class="val-cumul">${formatNum(cumul += parseFloat(o.ca_vol))}</td></tr>
+                            <tr class="bg-gray-50"><td class="text-center font-bold">10</td><td class="item-name">Zinc Sulfate</td><td class="val-prep text-right">${formatNum(o.zinc_vol)}</td><td class="val-cumul">${formatNum(cumul += parseFloat(o.zinc_vol))}</td></tr>
+                            <tr class="bg-gray-50"><td class="text-center font-bold">11</td><td class="item-name">Soluvit-N</td><td class="val-prep text-right">${formatNum(o.soluvit_vol)}</td><td class="val-cumul">${formatNum(cumul += parseFloat(o.soluvit_vol))}</td></tr>
+                            <tr class="bg-gray-50"><td class="text-center font-bold">12</td><td class="item-name">${o.additive_other_name || 'อื่นๆ'}</td><td class="val-prep text-right">${formatNum(o.additive_other_volume)}</td><td class="val-cumul">${formatNum(cumul += parseFloat(o.additive_other_volume))}</td></tr>
+                            <tr class="bg-gray-50"><td class="text-center font-bold">13</td><td class="item-name">Heparin</td><td class="val-prep text-right">${formatNum(o.heparin_vol)}</td><td class="val-cumul">${formatNum(cumul += parseFloat(o.heparin_vol))}</td></tr>
+                            <tr class="bg-gray-300 font-black"><td colspan="2" class="text-right">Total PN vol + ไล่สาย 30 ml</td><td colspan="2" class="text-center text-3xl">${formatNum(parseFloat(o.pn_volume) + 30)}</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="flex justify-between px-10 py-2 mt-2">
+                        <div class="text-center"><div class="w-24 border-b border-black"></div><p class="text-[10px] font-black mt-1">คนเตรียม</p></div>
+                        <div class="text-center"><div class="w-24 border-b border-black"></div><p class="text-[10px] font-black mt-1">คนตรวจ</p></div>
+                    </div>
+                </div>`;
+            });
+
+            html += `<script>window.onload = () => { window.print(); window.close(); };<\/script></body></html>`;
+            printWin.document.write(html);
+            printWin.document.close();
+        } catch (e) { alert("เกิดข้อผิดพลาดในการดึงข้อมูลค่ะ"); }
+        btn.innerHTML = originalBtnText;
+    }
+
+    function showWardDropdown() {
+      const dropdown = document.getElementById('wardFilterDropdown');
+      dropdown.classList.remove('hidden');
+      const wards = [...new Set(allOrders.map(o => o.ward).filter(w => w))].sort();
+      renderWardFilterOptions(wards);
+    }
+    function filterWardOptions() {
+      const searchTerm = document.getElementById('filterWardInput').value.toLowerCase();
+      const wards = [...new Set(allOrders.map(o => o.ward).filter(w => w))].sort();
+      renderWardFilterOptions(wards.filter(w => w.toLowerCase().includes(searchTerm)));
+    }
+    function renderWardFilterOptions(list) {
+      const container = document.getElementById('wardFilterOptions');
+      container.innerHTML = `<div onclick="selectWardFilter('')" class="px-4 py-2 hover:bg-blue-50 cursor-pointer text-blue-600 text-sm font-black border-b border-gray-50">แสดงทั้งหมด</div>` + 
+        list.map(w => `<div onclick="selectWardFilter('${w}')" class="px-4 py-2 hover:bg-blue-50 cursor-pointer text-black text-sm font-black border-b border-gray-50 last:border-0">${w}</div>`).join('');
+    }
+    function selectWardFilter(val) {
+      document.getElementById('filterWardInput').value = val || "";
+      document.getElementById('filterWardValue').value = val;
+      document.getElementById('wardFilterDropdown').classList.add('hidden');
+      renderCards();
+    }
+    function clearAllFilters() { document.getElementById('filterDate').value = ""; document.getElementById('filterWardInput').value = ""; document.getElementById('filterWardValue').value = ""; document.getElementById('filterHN').value = ""; renderCards(); }
+    document.addEventListener('click', (e) => { if (!document.getElementById('filterWardInput').parentElement.contains(e.target)) document.getElementById('wardFilterDropdown').classList.add('hidden'); });
+
+    function renderCards() {
+      const container = document.getElementById('cardContainer');
+      const countEl = document.getElementById('caseCount');
+      const fDate = document.getElementById('filterDate').value;
+      const fWard = document.getElementById('filterWardValue').value;
+      const fHN = document.getElementById('filterHN').value.toLowerCase();
+
+      const filtered = allOrders.filter(o => {
+        let matchDate = true;
+        if (fDate) {
+          const d = new Date(o.order_date);
+          matchDate = (`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === fDate);
+        }
+        return matchDate && (fWard ? o.ward === fWard : true) && (fHN ? o.hn && o.hn.toString().toLowerCase().includes(fHN) : true);
+      });
+
+      countEl.textContent = filtered.length;
+      if (filtered.length === 0) { container.innerHTML = `<div class="text-center py-10 bg-white rounded-3xl border-2 border-dashed border-gray-200 font-black">ไม่พบข้อมูล</div>`; return; }
+
+      container.innerHTML = [...filtered].reverse().map(order => {
+        const isC = order.route?.toLowerCase() === 'central';
+        return `
+        <div class="bg-white border-2 border-gray-200 rounded-[1.5rem] p-4 shadow-sm flex flex-col gap-4 hover:border-blue-400 transition-all">
+          <div class="flex items-center gap-5">
+            <div class="flex flex-col items-center justify-center min-w-[85px] border-r-2 border-gray-100 pr-4">
+              <span class="text-3xl font-black text-black leading-none">${order.ward || '-'}</span>
+              <span class="${isC ? 'bg-red-600' : 'bg-green-600'} text-white text-[10px] px-3 py-1 rounded-full font-black mt-2 uppercase tracking-tight">${order.route || 'N/A'}</span>
+            </div>
+            <div class="flex-1 min-w-[180px]">
+              <h3 class="font-black text-xl text-black leading-tight">${order.patient_name || 'ไม่ระบุชื่อ'}</h3>
+              <p class="text-sm font-black text-black font-mono mt-1">HN: <span class="text-lg">${order.hn}</span> | <span class="text-blue-700 bg-blue-50 px-2 rounded-lg">BW: ${order.bw} kg</span></p>
+            </div>
+            <div class="flex gap-3 text-center min-w-[250px]">
+              <div class="flex-1 bg-blue-50 rounded-2xl p-2 border border-blue-100">
+                <span class="text-[9px] text-black block font-black uppercase mb-1">Total Kcal</span>
+                <span class="text-lg font-black text-blue-800">${order.total_calories || '0'}</span>
+              </div>
+              <div class="flex-1 bg-purple-50 rounded-2xl p-2 border border-purple-100">
+                <span class="text-[9px] text-black block font-black uppercase mb-1">Osmol</span>
+                <span class="text-lg font-black text-purple-800">${order.osmolarity || '0'}</span>
+              </div>
+              <div class="flex-1 bg-gray-50 rounded-2xl p-2 border border-gray-200">
+                <span class="text-[9px] text-black block font-black uppercase mb-1">PN Vol</span>
+                <span class="text-lg font-black text-black">${order.pn_volume || '0'}</span>
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-3 pt-3 border-t border-gray-100">
+            <button onclick="window.open('detail.html?row=${order.row_index}', '_blank')" class="btn-action btn-detail">📄 รายละเอียด</button>
+            <button onclick="window.open('label.html?row=${order.row_index}', '_blank')" class="btn-action btn-label">🏷️ พิมพ์ฉลาก</button>
+            <button onclick="window.open('WS.html?row=${order.row_index}', '_blank')" class="btn-action btn-ws">📝 WORKSHEET</button>
+            <button onclick="deleteOrder(${order.row_index})" class="btn-action btn-off">🗑️ OFF TPN</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    async function deleteOrder(rowIndex) {
+      if (!confirm("⚠️ ยืนยันการสั่ง Off TPN?")) return;
+      try {
+        await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: new URLSearchParams({ action: 'deleteRow', row_index: rowIndex }) });
+        alert("✅ Off TPN สำเร็จ"); fetchOrders(); 
+      } catch (e) { alert("❌ เกิดข้อผิดพลาด"); }
+    }
+  </script>
+</body>
+</html>
