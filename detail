@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TPN Order Report | Srinagarind Hospital</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Sarabun', sans-serif; color: #000; line-height: 1.2; }
+    .text-blue-input { color: #1e40af !important; }
+    @media print {
+      @page { size: A4; margin: 10mm; }
+      body { background-color: white; margin: 0; padding: 0; }
+      .no-print { display: none !important; }
+      .print-container { border: none !important; width: 100% !important; box-shadow: none !important; padding: 0 !important; }
+      .print-footer { position: fixed; bottom: 0; left: 0; width: 100%; text-align: right; font-size: 10px; color: #666; border-top: 1px solid #eee; padding-top: 5px; }
+    }
+    .print-container { width: 210mm; min-height: 277mm; margin: 0 auto; background: white; padding: 10mm; position: relative; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
+    th, td { border: 1px solid #000; padding: 4px 6px; font-size: 11.5px; }
+    th { background-color: #f2f2f2; font-weight: 800; text-transform: uppercase; }
+    .section-header { background-color: #1e3a5f; color: white !important; padding: 4px 10px; font-weight: 800; font-size: 13px; margin-top: 10px; border-radius: 4px; }
+    .category-row { background-color: #f9f9f9; font-weight: 800; font-size: 11px; }
+    .patient-info-box { font-size: 13px; font-weight: 800; }
+  </style>
+</head>
+<body class="bg-gray-100">
+
+  <div class="max-w-[210mm] mx-auto my-4 flex justify-between no-print px-4">
+    <button onclick="window.close()" class="font-bold text-gray-500 hover:text-blue-600 transition-colors">← กลับ Dashboard</button>
+    <button onclick="window.print()" class="bg-blue-600 text-white px-8 py-2 rounded-full font-black shadow-lg hover:bg-blue-700 transition-all">🖨️ พิมพ์รายงาน (A4)</button>
+  </div>
+
+  <div class="print-container border border-gray-200 shadow-xl">
+    <div class="flex justify-between items-start border-b-2 border-black pb-2 mb-3">
+      <div>
+        <h1 class="text-2xl font-extrabold tracking-tighter uppercase">TPN Order Report</h1>
+        <p class="text-[12px] font-bold">โรงพยาบาลศรีนครินทร์ คณะแพทยศาสตร์ มหาวิทยาลัยขอนแก่น</p>
+      </div>
+      <div class="flex gap-2">
+        <div class="text-right pr-3 border-r-2 border-black">
+          <p class="text-[10px] font-black text-gray-500 uppercase">Order Date</p>
+          <p id="pDate" class="text-base font-black text-blue-input">-</p>
+        </div>
+        <div class="text-center border-2 border-black px-5 py-1 rounded-lg">
+          <p class="text-[10px] font-black uppercase text-gray-500">Ward</p>
+          <p id="pWard" class="text-3xl font-black leading-none text-blue-input">-</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-4 gap-4 patient-info-box mb-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+      <div class="col-span-2">Name: <span id="pName" class="text-lg text-blue-input">-</span></div>
+      <div>HN: <span id="pHN" class="font-mono text-lg text-blue-input">-</span></div>
+      <div>Weight: <span id="pBW" class="text-lg text-blue-input">-</span> <span class="text-blue-input">kg</span></div>
+      <div>Route: <span id="pRoute" class="uppercase text-lg text-blue-input">-</span></div>
+      <div>PN Vol (Net): <span id="vol-pn" class="text-lg text-blue-input">-</span> <span class="text-blue-input">ml</span></div>
+      <div>Rate PN: <span id="rate-pn" class="text-lg text-blue-input">-</span> <span class="text-blue-input">ml/hr</span></div>
+    </div>
+
+    <div class="section-header">🧪 TPN Composition (PN Solution)</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="text-left">องค์ประกอบ</th>
+          <th class="w-32">DOSAGE</th>
+          <th class="w-28">ปริมาณสุทธิ (ML)</th>
+          <th class="w-28">สำหรับเตรียม (ML)</th>
+          <th class="w-28">NOTE</th>
+        </tr>
+      </thead>
+      <tbody id="tpnTable"></tbody>
+    </table>
+
+    <div id="fatSection" class="hidden">
+      <div class="section-header">🧈 สรุปการเตรียม Fat (Lipid Emulsion)</div>
+      <div class="p-4 border-2 border-dashed border-green-600 rounded-lg mt-2 bg-green-50/20 grid grid-cols-2 gap-4">
+        <div class="text-[12px] space-y-1">
+          <p><span class="font-bold">Lipid Product:</span> <span id="fat-product" class="font-black text-green-800">-</span></p>
+          <p><span class="font-bold">Volume Fat:</span> <span id="fat-vol-base" class="font-black">-</span> ml</p>
+          <p><span class="font-bold">บวกไล่สาย:</span> <span id="fat-flush" class="font-black">-</span> ml</p>
+          <p><span id="fat-vita-label" class="font-bold">Vitalipid-N:</span> <span id="fat-vita" class="font-black text-blue-700">-</span> ml</p>
+          <p class="text-blue-900 font-bold border-t border-blue-200 pt-2 text-base">Total Fat Administration: <span id="fat-total-all" class="text-lg font-black">-</span> ml</p>
+        </div>
+        <div class="text-[12px] space-y-1 border-l border-green-200 pl-5">
+          <p><span class="font-bold text-green-700">Drip Rate:</span> <span id="fat-rate-val" class="font-bold text-lg">-</span> ml/hr</p>
+          <p><span class="font-bold text-green-700">Fat Requirement:</span> <span id="fat-req" class="font-black">-</span> g/kg/day</p>
+          <p><span class="font-bold">การเตรียม:</span> <span id="fat-split" class="font-black">-</span></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header">📊 Clinical Summary</div>
+    <div class="grid grid-cols-3 gap-3 mt-2">
+      <div class="border border-black p-3 text-center bg-gray-50">
+        <p class="text-[10px] font-bold uppercase text-gray-400">Total Calories</p>
+        <p id="val-cal" class="text-xl font-black">-</p>
+      </div>
+      <div class="border border-black p-3 text-center bg-gray-50">
+        <p class="text-[10px] font-bold uppercase text-gray-400">Calories per kg</p>
+        <p id="val-cal-kg" class="text-xl font-black">-</p>
+      </div>
+      <div class="border border-black p-3 text-center bg-gray-50">
+        <p class="text-[10px] font-bold uppercase text-gray-400">Total Osmolarity</p>
+        <p id="val-osmol" class="text-xl font-black">-</p>
+      </div>
+    </div>
+
+    <div class="mt-12 grid grid-cols-4 gap-4 text-center">
+      <div class="border-t border-black pt-2"><p class="text-[10px] font-black uppercase">Physician</p></div>
+      <div class="border-t border-black pt-2"><p class="text-[10px] font-black uppercase">Verified By (Phar)</p></div>
+      <div class="border-t border-black pt-2"><p class="text-[10px] font-black uppercase">Prepared By</p></div>
+      <div class="border-t border-black pt-2"><p class="text-[10px] font-black uppercase">Dispensed By</p></div>
+    </div>
+
+    <div class="print-footer mt-10 text-right">
+        <span class="text-[11px] font-bold text-gray-400">Generated: <span id="genTime"></span></span>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycby7vEf3xv1EkjcY_tYSESqmE9nUhVq8WvKZLOl-Pr9XQSAj3XytPBcBAyWuLWC9LbwM/exec';
+
+    document.addEventListener('DOMContentLoaded', fetchOrderDetail);
+
+    async function fetchOrderDetail() {
+      const row = new URLSearchParams(window.location.search).get('row');
+      if (!row) return;
+      try {
+        const res = await fetch(`${API_URL}?action=getDataDetail&row_index=${row}`);
+        const order = await res.json();
+        if (order) displayReport(order);
+      } catch (e) { 
+        console.error("Error:", e); 
+        alert("ดึงข้อมูลไม่สำเร็จค่ะคุณขิม ลองเช็คการ Deploy อีกรอบนะคะ");
+      }
+    }
+
+    function displayReport(o) {
+      // ข้อมูลทั่วไป
+      document.getElementById('pDate').innerText = o.order_date ? new Date(o.order_date).toLocaleDateString('th-TH') : '-';
+      document.getElementById('pWard').innerText = o.ward || '-';
+      document.getElementById('pName').innerText = o.patient_name || '-';
+      document.getElementById('pHN').innerText = o.hn || '-';
+      document.getElementById('pBW').innerText = o.bw || '-';
+      document.getElementById('pRoute').innerText = o.route || '-';
+      document.getElementById('vol-pn').innerText = o.pn_volume || '0';
+      document.getElementById('rate-pn').innerText = o.rate_tpn || '0';
+      document.getElementById('genTime').innerText = new Date().toLocaleString('th-TH');
+
+      // Clinical Summary (แก้ชื่อตัวแปรให้ตรงกับ Code.gs)
+      document.getElementById('val-cal').innerText = (o.total_calories || 0) + ' kcal';
+      document.getElementById('val-cal-kg').innerText = (o.cal_per_kg || 0) + ' kcal/kg/day'; 
+      document.getElementById('val-osmol').innerText = (o.final_osmolarity || 0) + ' mOsm/L'; 
+
+      const table = document.getElementById('tpnTable');
+      
+      const categories = [
+        { label: "Macronutrients", items: [
+          { n: o.protein_product_name === "aminoven" ? "10% Aminoven infant" : o.protein_product_name, d: `${o.protein_target} g/kg/day`, v: o.protein_vol, p: o.prep_protein_vol, note: "" },
+          { n: "50% Dextrose", d: `${o.dextrose_percent} %`, v: o.dex_vol, p: o.prep_dex_50_vol, note: `GIR: ${o.gir_result || '0'}` }
+        ]},
+        { label: "Electrolytes", items: [
+          { n: "- Glycophos (P)", d: `${o.phosphorus} mEq/kg/day`, v: o.phos_vol, p: o.prep_phos_vol, note: `Na from P: ${o.na_from_p_meq || '0'} mEq` },
+          { n: "- 3% NaCl", d: `${o.sodium} mEq/kg/day`, v: o.na_vol, p: o.prep_na_vol, note: "" },
+          { n: "- KCl", d: `${o.potassium} mEq/kg/day`, v: o.k_vol, p: o.prep_k_vol, note: "" },
+          { n: "- 50% MgSO4", d: `${o.magnesium} mmol/kg/day`, v: o.mg_vol, p: o.prep_mg_vol, note: "" },
+          { n: "- 10% Calcium Gluconate (Ca)", d: `${o.calcium} ml/kg/day`, v: o.ca_vol, p: o.prep_ca_vol, note: "" }
+        ]},
+        { label: "Vitamins & Trace Elements", items: [
+          { n: "- Soluvit N", d: "-", v: o.soluvit_vol, p: o.soluvit_vol, note: "" },
+          { n: "- Peditrace", d: "-", v: o.peditrace_vol, p: o.peditrace_vol, note: "" }
+        ]},
+        { label: "Additives", items: [
+          // Zinc Sulfate (เช็คชื่อฟิลด์จาก Code.gs)
+          { n: `- Zinc Sulfate (Preterm)`, d: o.zinc_vol > 0 ? 'Yes' : '-', v: o.zinc_vol, p: o.zinc_vol, note: "" },
+          // Heparin (ตัดคำว่า units ซ้ำ)
+          { n: `- Heparin 1u/ml (conc. 500 units/ml)`, d: (o.heparin_units || '0').toString().replace(' units', ''), v: o.heparin_vol, p: o.heparin_vol, note: "" },
+          { n: `- ${o.additive_other_name || "Other Additive"}`, d: "-", v: o.additive_other_volume, p: o.additive_other_volume, note: "" }
+        ]},
+        { label: "Sterile Water", items: [
+          { n: "Sterile Water for Injection", d: "-", v: o.water_net, p: o.prep_water_vol, note: "" }
+        ]}
+      ];
+
+      let tableHtml = "";
+      categories.forEach(cat => {
+        tableHtml += `<tr class="category-row"><td colspan="5" class="px-2 py-0.5">${cat.label}</td></tr>`;
+        cat.items.forEach(i => {
+          const val = parseFloat(i.v) || 0;
+          tableHtml += `
+            <tr class="${val === 0 ? 'text-gray-400' : ''}">
+              <td class="pl-4 font-bold">${i.n}</td>
+              <td class="text-center font-mono">${i.d || '-'}</td>
+              <td class="text-center font-black">${val} ml</td>
+              <td class="text-center font-bold text-blue-800 bg-blue-50/50">${i.p || 0} ml</td>
+              <td class="text-[10px] italic font-bold">${i.note}</td>
+            </tr>`;
+        });
+      });
+
+      tableHtml += `
+        <tr class="bg-gray-800 text-white font-black">
+          <td class="px-4 py-2 text-sm uppercase text-white">TOTAL VOLUME (PN SOLUTION)</td>
+          <td class="text-center text-white">-</td>
+          <td class="text-center text-yellow-400 text-base">${o.pn_volume} ml</td>
+          <td class="text-center text-cyan-300 text-base">${o.pn_prep_total} ml</td>
+          <td class="text-[9px] italic text-white text-center"></td>
+        </tr>`;
+
+      table.innerHTML = tableHtml;
+
+      // Fat Section
+      if (parseFloat(o.fat_target) > 0 || parseFloat(o.total_fat_vit_flush) > 0) {
+        document.getElementById('fatSection').classList.remove('hidden');
+        const fatProd = o.fat_product_name === "smof" ? "20% SMOF lipid" : (o.fat_product_name === "intralipid" ? "20% Intralipid" : o.fat_product_name);
+        document.getElementById('fat-product').innerText = fatProd || '-';
+        const vitName = o.vit_product === "Infant" ? "Vitalipid Infant (Blue)" : "Vitalipid Adult (Pink)";
+        document.getElementById('fat-vita-label').innerText = vitName + ":";
+        document.getElementById('fat-vita').innerText = o.vitalipid_vol || '0';
+        const totalAdmin = parseFloat(o.total_fat_vit_flush) || 0;
+        const flushVal = parseFloat(o.flush_volume) || 0;
+        const vitaVal = parseFloat(o.vitalipid_vol) || 0;
+        const calculatedFatOnly = (totalAdmin - (flushVal + vitaVal)).toFixed(1);
+        document.getElementById('fat-vol-base').innerText = calculatedFatOnly;
+        document.getElementById('fat-flush').innerText = flushVal;
+        document.getElementById('fat-total-all').innerText = totalAdmin.toFixed(1);
+        document.getElementById('fat-rate-val').innerText = o.fat_rate || '0';
+        document.getElementById('fat-req').innerText = (o.fat_target || '0') + ' g/kg/day';
+        document.getElementById('fat-split').innerText = o.prep_split === 'split' ? 'แบ่งเตรียม 2 Syringe' : 'ไม่แบ่งเตรียม';
+      }
+    }
+  </script>
+</body>
+</html>
