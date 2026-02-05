@@ -2,35 +2,36 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <title>TPN Master Print | Auto-Margin Version</title>
+  <title>TPN Master Print | No-Blank-Page Version</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700;800&display=swap" rel="stylesheet">
   <style>
     /* CSS พื้นฐาน */
     * { font-family: 'Sarabun', sans-serif; color: #000; line-height: 1.1; font-weight: 700; }
     
     @media print {
-      /* บังคับระยะขอบกระดาษเป็น 0 ทุกด้าน */
-      @page { margin: 0; }
-      body { background: #fff; margin: 0; padding: 0; }
+      @page { margin: 0; size: auto; } /* บังคับ Margin เป็น 0 */
+      body { background: #fff; margin: 0; padding: 0; overflow: hidden; } /* ป้องกันหน้าเกิน */
       .no-print { display: none !important; }
       .print-area:not(.active) { display: none !important; }
       
       .sticker { 
         box-shadow: none !important; 
         border: none !important; 
-        page-break-after: always; 
+        margin: 0 auto !important;
+        page-break-after: avoid; /* เปลี่ยนเป็น avoid เพื่อไม่ให้ดีดหน้าว่าง */
+        page-break-inside: avoid;
         display: block !important;
+        overflow: hidden; /* บังคับให้อยู่ในกรอบ */
       }
 
-      /* ปรับ Scale ของ PN อัตโนมัติ (ไม่ต้องตั้ง 92% เอง) */
+      /* จัดการสัดส่วน PN (92%) */
       #pn-area .sticker-pn {
         zoom: 0.92;
         margin: 0 auto !important;
       }
 
-      /* ปรับ Offset ของ Fat และ Bag (ชดเชย 2mm ที่เคยตั้งค่าเอง) */
+      /* จัดการสัดส่วน Fat/Bag และขอบบน 2mm */
       #fat-area .sticker-small, 
       #bag-area .sticker-small {
         margin-top: 2mm !important;
@@ -98,7 +99,7 @@
 
   <div class="max-w-4xl mx-auto py-8 px-4 no-print text-center">
     <div class="bg-emerald-100 p-4 rounded-xl mb-6 text-emerald-800 text-sm">
-      🚀 <b>Smart Print Version:</b> ตั้งค่าระยะขอบและสเกลให้อัตโนมัติ (Margin: 0, PN Scale: 92%)
+      ✅ <b>Ready to Print:</b> ตัดหน้าว่างออกเรียบร้อย | ตั้งค่าสัดส่วนอัตโนมัติ
     </div>
     
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -115,9 +116,8 @@
       </div>
     </div>
 
-    <div id="action-btns" class="hidden flex flex-col md:flex-row gap-4 justify-center">
-      <button onclick="window.print()" class="bg-slate-900 text-white py-5 px-10 rounded-3xl font-black text-xl shadow-xl hover:bg-black transition-colors">🖨️ พิมพ์ทันที (ไม่ต้องตั้งค่า)</button>
-      <button onclick="generatePDF()" class="bg-blue-600 text-white py-5 px-10 rounded-3xl font-black text-xl shadow-xl hover:bg-blue-700 transition-colors">💾 บันทึกเป็น PDF</button>
+    <div id="action-btns" class="hidden flex justify-center">
+      <button onclick="window.print()" class="bg-slate-900 text-white py-5 px-14 rounded-3xl font-black text-2xl shadow-xl hover:bg-black transition-all transform hover:scale-105">🖨️ สั่งพิมพ์ฉลาก</button>
     </div>
   </div>
 
@@ -126,7 +126,7 @@
   <div id="bag-area" class="print-area"></div>
 
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycby7vEf3xv1EkjcY_tYSESqmE9nUhVq8WvKZLOl-Pr9XQSAj3XytPBcBAyWuLWC9LbwM/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwAXIgHNvWpROWj74igzeK5nxaq2nSjFOeXrxgLILxJBhkr8HYz6asFsRPVJNNX7lFK/exec';
     let rawData = null;
     let selectedType = null;
 
@@ -172,20 +172,6 @@
       for (let j = 1; j <= fatDiv; j++) { fatArea.innerHTML += createFat(rawData, j, fatDiv); }
       
       document.getElementById('bag-area').innerHTML = createBag(rawData);
-    }
-
-    function generatePDF() {
-      if (!rawData) return;
-      const element = document.getElementById(`${selectedType}-area`);
-      const filename = `${selectedType}_${rawData.hn}_${rawData.patient_name}.pdf`;
-      const opt = {
-        margin: [0, 0],
-        filename: filename,
-        image: { type: 'jpeg', quality: 1 },
-        html2canvas: { scale: 3, useCORS: true, letterRendering: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-      html2pdf().set(opt).from(element).save();
     }
 
     function createPN(o, bNum, div) {
@@ -337,3 +323,5 @@
   </script>
 </body>
 </html>
+
+
